@@ -17,6 +17,9 @@ import java.io.FileWriter;
 import java.util.List;
 
 public class Page extends JPanel implements TooltipProviderI, MouseListener, ActionListener {
+
+    private static JFileChooser fc = null;
+
     private List<State> states = null;
 
     public Page(List<State> states) {
@@ -41,8 +44,10 @@ public class Page extends JPanel implements TooltipProviderI, MouseListener, Act
 
     private int getStateHeight(int h) {
         int stateCount = states.size();
-        h /= (stateCount * 4);
-        return h * 3;
+        h /= (stateCount * 6);
+        return h * 5;
+        /*h /= (stateCount * 4);
+        return h * 3;*/
     }
     private int getVerticalStep(int h) {
         int stateCount = states.size();
@@ -157,10 +162,17 @@ public class Page extends JPanel implements TooltipProviderI, MouseListener, Act
         return findFrame(component.getParent());
     }
 
+    private static JFileChooser getFileChooser() {
+        if (fc == null) {
+            fc = new JFileChooser();
+            fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        }
+        return fc;
+    }
+
     private void save() {
 
-        JFileChooser fc = new JFileChooser();
-        fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        JFileChooser fc = getFileChooser();
         int ret = fc.showDialog(this, "Select");
         if (ret != JFileChooser.APPROVE_OPTION) {
             return;

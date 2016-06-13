@@ -144,7 +144,7 @@ public class State {
         svgGenerator.setFont(new Font("Courier New", Font.PLAIN, 2));
         FontMetrics fm = svgGenerator.getFontMetrics();
         svgGenerator.setColor(Color.black);
-        svgGenerator.drawString(getGeneStringDesc(), x, y + h + fm.getAscent() + 1);
+        svgGenerator.drawString("  " + getGeneStringDesc(), x, y + h + fm.getAscent() + 1);
 
         int cols = get(Gene.COLUMNS) + 5;
         double colWidth = (double)w/ (double)cols;

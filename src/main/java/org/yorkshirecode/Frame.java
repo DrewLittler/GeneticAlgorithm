@@ -1,5 +1,7 @@
 package org.yorkshirecode;
 
+import com.sun.javaws.exceptions.InvalidArgumentException;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,11 +11,14 @@ import javax.swing.event.ChangeListener;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
 import java.util.*;
 import java.util.List;
 
 public class Frame extends JFrame implements ActionListener, ChangeListener {
     private static final Logger LOG = LoggerFactory.getLogger(Frame.class);
+
+    private static JFileChooser fc = null;
 
     private List<JSlider> sliders = new ArrayList<>();
     private List<JSpinner> spinners = new ArrayList<>();
@@ -58,13 +63,17 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
         topLeft.add(b);
         b.addActionListener(this);
 
+        b = new JButton("Load");
+        topLeft.add(b);
+        b.addActionListener(this);
+
         topLeft.add(new JLabel("Children"));
 
         SpinnerNumberModel model = new SpinnerNumberModel();
         model.setMinimum(1);
         model.setMaximum(127);
 
-        children = new JSpinner();
+        children = new Spinner();
         topLeft.add(children);
         children.setModel(model);
         children.setValue(4);
@@ -76,7 +85,7 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
         model.setMinimum(1);
         model.setMaximum(127);
 
-        generations = new JSpinner();
+        generations = new Spinner();
         topLeft.add(generations);
         generations.setModel(model);
         generations.setValue(4);
@@ -115,7 +124,7 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
             l.setText(State.getGeneDesc(i));
             sliderPanel.add(l, BorderLayout.WEST);
 
-            JSlider slider = new JSlider();
+            JSlider slider = new Slider();
             slider.setMinimum(State.MIN_VALUE);
             slider.setMaximum(State.MAX_VALUE);
             slider.setMajorTickSpacing(1);
@@ -131,7 +140,7 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
             model.setMinimum(State.MIN_VALUE);
             model.setMaximum(State.MAX_VALUE);
 
-            JSpinner spinner = new JSpinner();
+            JSpinner spinner = new Spinner();
             spinner.setModel(model);
             spinner.addChangeListener(this);
             sliderPanel.add(spinner, BorderLayout.EAST);
@@ -170,8 +179,50 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
             randomise();
         } else if (e.getActionCommand().equalsIgnoreCase("Go!")) {
             go();
+        } else if (e.getActionCommand().equalsIgnoreCase("Load")) {
+            load();
         } else {
             LOG.error("Unknown button [" + e.getActionCommand() + "]");
+        }
+    }
+
+    private static JFileChooser getFileChooser() {
+        if (fc == null) {
+            fc = new JFileChooser();
+            fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        }
+        return fc;
+    }
+
+    private void load() {
+        JFileChooser fc = getFileChooser();
+        int ret = fc.showDialog(this, "Select");
+        if (ret != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        try{
+            File f = fc.getSelectedFile();
+            String name = FilenameUtils.removeExtension(f.getName());
+            String[] toks = name.split(" ");
+            if (toks.length != State.GENE_COUNT) {
+                throw new IllegalArgumentException("Wrong number of tokens in file name");
+            }
+
+            int[] vals = new int[toks.length];
+
+            for (int i=0; i<vals.length; i++) {
+                vals[i] = Integer.parseInt(toks[i]);
+            }
+
+            for (int i=0; i<vals.length; i++) {
+                JSlider slider = sliders.get(i);
+                slider.setValue(vals[i]);
+            }
+
+        } catch (Exception e) {
+            String err = "The file name isn't valid:\n" + e.getMessage();
+            JOptionPane.showMessageDialog(this, err);
         }
     }
 
@@ -255,8 +306,12 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
             JSpinner spinner = (JSpinner)e.getSource();
             int val = ((Integer)spinner.getValue()).intValue();
             int index = spinners.indexOf(spinner);
-            JSlider slider = sliders.get(index);
-            slider.setValue(val);
+
+            //the spinners on the top panel aren't linked to sliders
+            if (index > -1) {
+                JSlider slider = sliders.get(index);
+                slider.setValue(val);
+            }
 
         } else {
             JSlider slider = (JSlider)e.getSource();
