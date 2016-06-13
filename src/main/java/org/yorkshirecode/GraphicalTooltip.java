@@ -8,13 +8,15 @@ public class GraphicalTooltip implements MouseMotionListener, MouseListener, Hie
 
     private Component component = null;
     private Timer timer = null;
+    private Point mouseLoc = null;
     private TooltipProviderI provider = null;
+    private TooltipPanel tooltipPanel = null;
 
     public GraphicalTooltip(Component component, TooltipProviderI provider) {
         this.component = component;
         this.provider = provider;
 
-        this.timer = new Timer(750, this);
+        this.timer = new Timer(500, this);
         //timer.addActionListener(this);
         timer.setRepeats(false);
         //timer.setDelay(1000);
@@ -30,6 +32,8 @@ public class GraphicalTooltip implements MouseMotionListener, MouseListener, Hie
     @Override
     public void mouseMoved(MouseEvent e) {
         hideTooltip();
+
+        mouseLoc = e.getPoint();
         timer.restart();
     }
 
@@ -44,6 +48,7 @@ public class GraphicalTooltip implements MouseMotionListener, MouseListener, Hie
 
     @Override
     public void mouseEntered(MouseEvent e) {
+        mouseLoc = e.getPoint();
         timer.start();
     }
 
@@ -67,14 +72,46 @@ public class GraphicalTooltip implements MouseMotionListener, MouseListener, Hie
     @Override
     public void actionPerformed(ActionEvent e) {
         showTooltip();
-        System.out.println("Show tooltip");
     }
 
     private void hideTooltip() {
+        if (tooltipPanel == null) {
+            return;
+        }
 
+        tooltipPanel.setVisible(false);
+        Container parent = tooltipPanel.getParent();
+        parent.remove(tooltipPanel);
+        tooltipPanel = null;
     }
 
     private void showTooltip() {
 
+        Window win = getWindow(component);
+        if (win == null) {
+            return;
+        }
+
+        tooltipPanel = new TooltipPanel(provider);
+
+        if (win instanceof JFrame) {
+            ((JFrame)win).getLayeredPane().add(tooltipPanel, JLayeredPane.POPUP_LAYER);
+        } else if (win instanceof JDialog) {
+            ((JDialog)win).getLayeredPane().add(tooltipPanel, JLayeredPane.POPUP_LAYER);
+        } else {
+            throw new RuntimeException("Unsupported window type");
+        }
+
+        Point loc = SwingUtilities.convertPoint(component, mouseLoc, win);
+        tooltipPanel.setLocation(loc);
+    }
+
+    private Window getWindow(Component comp) {
+        Container cont = comp.getParent();
+        if (cont instanceof Window) {
+            return (Window)cont;
+        }
+
+        return getWindow(cont);
     }
 }

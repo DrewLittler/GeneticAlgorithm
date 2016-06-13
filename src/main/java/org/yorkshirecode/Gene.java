@@ -8,7 +8,8 @@ public enum Gene {
     COLUMNS(3),
     DELTA_HUE(4),
     DELTA_SATURATION(5),
-    DELTA_BRIGHTNESS(6);
+    DELTA_BRIGHTNESS(6),
+    MUTABILITY(7);
 
     private int value;
 

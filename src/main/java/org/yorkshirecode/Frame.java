@@ -16,12 +16,14 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
     private static final Logger LOG = LoggerFactory.getLogger(Frame.class);
 
     private List<JSlider> sliders = new ArrayList<>();
+    private List<JSpinner> spinners = new ArrayList<>();
     private int suspendChangeListener = 0;
 
     private JSpinner children = null;
     private JSpinner generations = null;
     private JPanel topRight = null;
     private JPanel middleRight = null;
+    private JTabbedPane tabbedPane = null;
 
     private State startingState = null;
 
@@ -41,9 +43,12 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
         left.setLayout(new BorderLayout());
         splitPane.add(left, JSplitPane.LEFT);
 
+        tabbedPane = new JTabbedPane();
+        splitPane.add(tabbedPane, JSplitPane.RIGHT);
+
         JPanel right = new JPanel();
         right.setLayout(new BorderLayout());
-        splitPane.add(right, JSplitPane.RIGHT);
+        tabbedPane.addTab("Preview", right);
 
         JPanel topLeft = new JPanel();
         left.add(topLeft, BorderLayout.NORTH);
@@ -74,7 +79,7 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
         generations = new JSpinner();
         topLeft.add(generations);
         generations.setModel(model);
-        generations.setValue(14);
+        generations.setValue(4);
         generations.addChangeListener(this);
 
         b = new JButton("Go!");
@@ -118,11 +123,21 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
             slider.setPaintTicks(true);
             slider.setPaintTrack(true);
             slider.setLabelTable(ticks);
-            sliderPanel.add(slider, BorderLayout.CENTER);
-
             slider.addChangeListener(this);
-
+            sliderPanel.add(slider, BorderLayout.CENTER);
             sliders.add(slider);
+
+            model = new SpinnerNumberModel();
+            model.setMinimum(State.MIN_VALUE);
+            model.setMaximum(State.MAX_VALUE);
+
+            JSpinner spinner = new JSpinner();
+            spinner.setModel(model);
+            spinner.addChangeListener(this);
+            sliderPanel.add(spinner, BorderLayout.EAST);
+            spinners.add(spinner);
+
+
         }
 
         topRight = new JPanel();
@@ -160,22 +175,26 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
         }
     }
 
+    private int getChildren() {
+        return (Integer)children.getValue();
+    }
+    private int getGenerations() {
+        return (Integer)generations.getValue();
+    }
+
     private void go() {
 
         middleRight.removeAll();
 
-        int numChildren = (Integer)children.getValue();
-        int numGenerations = (Integer)generations.getValue();
-
         List<State> states = new ArrayList<>();
         states.add(startingState);
-        go(states, numChildren, numGenerations);
+        go(middleRight, states, getChildren(), getGenerations());
 
         middleRight.revalidate();
         middleRight.validate();
         middleRight.invalidate();
     }
-    private void go(List<State> states, int numChildren, int numGenerations) {
+    private static void go(JPanel panel, List<State> states, int numChildren, int numGenerations) {
 
         numGenerations --;
 
@@ -184,32 +203,18 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
             State lastState = states.get(states.size()-1);
             State nextState = lastState.mutate();
 
-            List<State> newStates = new ArrayList<>(states);
+            final List<State> newStates = new ArrayList<>(states);
             newStates.add(nextState);
 
             if (numGenerations > 0) {
-                go(newStates, numChildren, numGenerations);
+                go(panel, newStates, numChildren, numGenerations);
             } else {
 
-                GridLayout l = new GridLayout();
-                l.setColumns(1);
-                l.setRows(newStates.size());
-                l.setVgap(5);
-
-                JPanel p = new JPanel();
-                p.setOpaque(true);
-                p.setBackground(Color.white);
-                p.setBorder(BorderFactory.createLineBorder(Color.black));
-                p.setLayout(l);
-
-                for (State s: newStates) {
-                    p.add(new StatePanel(s));
-                }
-
+                Page p = new Page(newStates);
                 p.setPreferredSize(new Dimension(210, 300));
-                middleRight.add(p);
+                panel.add(p);
 
-                GraphicalTooltip tooltip = new GraphicalTooltip(p);
+                GraphicalTooltip tooltip = new GraphicalTooltip(p, p);
             }
         }
 
@@ -222,11 +227,17 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
         suspendChangeListener ++;
         Random r = new Random();
 
-        for (JSlider slider: sliders) {
+        for (int i=0; i<sliders.size(); i++) {
+
+            JSlider slider = sliders.get(i);
             int min = slider.getMinimum();
             int max = slider.getMaximum();
             int val = min + r.nextInt(max - min);
             slider.setValue(val);
+
+            JSpinner spinner = spinners.get(i);
+            spinner.setValue(new Integer(val));
+
         }
         suspendChangeListener --;
         createState();
@@ -237,6 +248,25 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
         if (suspendChangeListener > 0) {
             return;
         }
+
+        suspendChangeListener ++;
+
+        if (e.getSource() instanceof JSpinner) {
+            JSpinner spinner = (JSpinner)e.getSource();
+            int val = ((Integer)spinner.getValue()).intValue();
+            int index = spinners.indexOf(spinner);
+            JSlider slider = sliders.get(index);
+            slider.setValue(val);
+
+        } else {
+            JSlider slider = (JSlider)e.getSource();
+            int val = slider.getValue();
+            int index = sliders.indexOf(slider);
+            JSpinner spinner = spinners.get(index);
+            spinner.setValue(new Integer(val));
+        }
+
+        suspendChangeListener --;
 
         createState();
     }
@@ -260,5 +290,34 @@ public class Frame extends JFrame implements ActionListener, ChangeListener {
         topRight.validate();
         topRight.invalidate();
         topRight.revalidate();
+    }
+
+    public void evolve(List<State> states) {
+
+        WrapLayout wrapLayout = new WrapLayout();
+        wrapLayout.setVgap(20);
+        wrapLayout.setHgap(20);
+
+        JPanel p = new JPanel();
+        p.setLayout(wrapLayout);
+
+        JScrollPane sp = new JScrollPane();
+        sp.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        sp.setViewportView(p);
+        sp.getVerticalScrollBar().setUnitIncrement(100);
+
+        int tab = tabbedPane.getSelectedIndex()+1;
+
+        String tabName = states.get(0).getGeneString(".") + " (" + (states.size() + getGenerations()) + ")";
+        tabbedPane.insertTab(tabName, null, sp, null, tab);
+
+        //JLabel l = (JLabel)tabbedPane.getTabComponentAt(tab);
+        //l.set
+
+        go(p, states, getChildren(), getGenerations());
+
+        tabbedPane.setSelectedIndex(tab);
+
+
     }
 }
